@@ -1,4 +1,5 @@
-const booksDao = require('../dao/booksDao');
+const cloudinary = require('../config/cloudinaryConfig');
+const booksDao = require('../dao/booksDao'); 
 
 // Obtener todos los libros
 async function getAllBooks(req, res) {
@@ -25,16 +26,37 @@ async function getBookById(req, res) {
     }
 }
 
-// Insertar un nuevo libro
-async function createBook(req, res) {
+// Controlador para registrar un libro
+async function registerBook(req, res) {
     try {
-        const { nombre, autor, genero, estatus } = req.body; 
-        const newBookId = await booksDao.insert({ nombre, autor, genero, estatus });
-        res.status(201).json({ message: 'Libro creado', bookId: newBookId });
-    } catch (err) {
-        res.status(500).json({ message: 'Error al crear el libro', error: err });
+        if (!req.files || Object.keys(req.files).length === 0) {
+            return res.status(400).send('No hay archivos para subir.');
+        }
+        
+        const { nombre, autor, genero, estatus } = req.body;
+        const pdfFile = req.files.pdf;
+
+        // Sube el archivo PDF a Cloudinary
+        const result = await cloudinary.uploader.upload(pdfFile.tempFilePath, {
+            resource_type: 'raw'
+        });
+        
+        const pdfUrl = result.secure_url;
+
+        const bookId = await insert({ nombre, autor, genero, estatus, pdf_url: pdfUrl });
+
+        res.status(201).json({
+            message: "Libro creado",
+            bookId
+        });
+    } catch (error) {
+        console.error('Error al registrar el libro:', error);
+        res.status(500).json({
+            error: 'Error al registrar el libro: ' + error.message
+        });
     }
 }
+
 
 // Actualizar un libro
 async function updateBook(req, res) {
@@ -55,6 +77,6 @@ async function updateBook(req, res) {
 module.exports = {
     getAllBooks,
     getBookById,
-    createBook,
+    registerBook,
     updateBook,
 };
